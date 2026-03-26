@@ -1,0 +1,79 @@
+bdsesiones - sqlite3
+--------------------------
+// Tabla Usuarios
+  CREATE TABLE IF NOT EXISTS usuarios (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        usuario TEXT NOT NULL UNIQUE,
+        clave TEXT NOT NULL,
+        rol TEXT CHECK(rol IN ('Admin', 'Lector', 'Editor')) DEFAULT 'Lector',
+        rutaimg TEXT, -- Nueva columna para la ruta de la foto o avatar
+        activo INTEGER DEFAULT 1,
+        registrado DATETIME DEFAULT CURRENT_TIMESTAMP,
+        modificado DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+  CREATE TABLE IF NOT EXISTS carreras (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nombre VARCHAR(100),
+    codigo VARCHAR(5),
+    comentario TEXT,
+    registrado DATETIME DEFAULT CURRENT_TIMESTAMP,
+    modificado DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  // Tabla Cursos (con Llave Foránea hacia Carrera)
+    CREATE TABLE IF NOT EXISTS cursos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    carrera_id INTEGER,
+    nombre VARCHAR(100),
+    materia VARCHAR(5),
+    numero INTEGER,
+    semestre INTEGER,
+    horastecnologia INTEGER,
+    horastaller INTEGER,
+    horasautoestudio INTEGER,
+    horaseval INTEGER,
+    creditos REAL,
+    comentario TEXT,
+    registrado DATETIME DEFAULT CURRENT_TIMESTAMP,
+    modificado DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(carrera_id) REFERENCES carrera(id)
+  );
+
+
+
+
+
+ENTORNO DE PROGRAMACION
+------------------------------
+Instalar Node.js
+Para instalar las dependencias de un proyecto de Electron con better-sqlite3, debes seguir unos pasos específicos. A diferencia de otras librerías, better-sqlite3 contiene código en C++ que debe compilarse para que sea compatible con la versión de Node.js que usa Electron.
+
+1. Inicializa tu proyecto (si no lo has hecho)
+bash
+npm init -y
+
+2. Instala Electron y el empaquetador (Dependencias de desarrollo)
+Instalamos estas herramientas como devDependencies porque solo las necesitas para programar y construir el ejecutable:
+
+bash
+npm install electron electron-builder --save-dev
+
+3. Instala better-sqlite3 y electron-rebuild
+Aquí está el truco: necesitas electron-rebuild para que la base de datos funcione dentro de Electron sin errores de "mismatch":
+bash
+npm install better-sqlite3
+npm install electron-rebuild --save-dev
+
+4. Configura el "Rebuild" en tu package.json
+Para que no tengas que pelear con compilaciones manuales, añade este script a tu archivo package.json:
+json
+"scripts": {
+  "start": "electron .",
+  "rebuild": "electron-rebuild -f -w better-sqlite3"
+}
+
+5. Ejecuta el Rebuild
+Este paso es vital. Cada vez que instales una librería que use C++ (como better-sqlite3), ejecuta:
+bash
+npm run rebuild
