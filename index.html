@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Gestión de Usuarios</title>
+    <style>
+        :root {
+            --primary: #4F46E5;
+            --primary-hover: #4338CA;
+            --bg: #F3F4F6;
+            --surface: #FFFFFF;
+            --text: #1F2937;
+            --text-light: #6B7280;
+            --border: #E5E7EB;
+            --danger: #EF4444;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            padding: 20px;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+        }
+        h1 { margin-top: 0; color: var(--text); }
+        .container { max-width: 1000px; margin: 0 auto; }
+
+        /* Formulario */
+        #user-form-container {
+            background: var(--surface);
+            padding: 20px 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            margin-bottom: 30px;
+        }
+        h3 { margin-top: 0; color: var(--primary); }
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+        }
+        .form-group { display: flex; flex-direction: column; }
+        .form-group label {
+            font-weight: 500;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+            color: var(--text-light);
+        }
+        input[type="text"], input[type="password"], select {
+            padding: 10px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 1em;
+            transition: border-color 0.2s;
+        }
+        input[type="text"]:focus, input[type="password"]:focus, select:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .image-input-group {
+            display: flex;
+            gap: 10px;
+        }
+        .image-input-group input { flex-grow: 1; background-color: #f9fafb; }
+
+        .form-actions {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+        }
+
+        /* Botones */
+        button {
+            padding: 10px 20px;
+            cursor: pointer;
+            border: none;
+            border-radius: 4px;
+            font-weight: 500;
+            font-size: 0.9em;
+            transition: background-color 0.2s;
+        }
+        .btn-primary { background-color: var(--primary); color: white; }
+        .btn-primary:hover { background-color: var(--primary-hover); }
+        .btn-secondary { background-color: #E5E7EB; color: var(--text); }
+        .btn-secondary:hover { background-color: #D1D5DB; }
+        .btn-danger { background-color: var(--danger); color: white; }
+        .btn-danger:hover { background-color: #DC2626; }
+
+        /* Tabla */
+        .table-container {
+            background: var(--surface);
+            border-radius: 8px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            overflow-x: auto;
+        }
+        table { width: 100%; border-collapse: collapse; text-align: left; }
+        th, td { padding: 15px; border-bottom: 1px solid var(--border); }
+        th {
+            background-color: #F9FAFB;
+            font-weight: 600;
+            color: var(--text-light);
+            text-transform: uppercase;
+            font-size: 0.8em;
+            letter-spacing: 0.05em;
+        }
+        tr:hover { background-color: #F9FAFB; }
+        .actions { display: flex; gap: 8px; }
+        .actions button { padding: 6px 12px; }
+
+        .badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: 600;
+        }
+        .badge.active { background-color: #D1FAE5; color: #065F46; }
+        .badge.inactive { background-color: #FEE2E2; color: #991B1B; }
+
+        /* Imagen miniatura */
+        .thumb {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+            background-color: #e5e7eb;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7em;
+            color: #9ca3af;
+        }
+
+        /* Notificaciones Toast */
+        #toast-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .toast {
+            min-width: 250px;
+            padding: 15px 20px;
+            border-radius: 6px;
+            color: #fff;
+            font-size: 0.9em;
+            font-weight: 500;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            opacity: 0;
+            transform: translateY(20px);
+            animation: slideIn 0.3s forwards, fadeOut 0.5s 2.5s forwards;
+        }
+        .toast.success { background-color: #10B981; }
+        .toast.error { background-color: var(--danger); }
+        .toast.info { background-color: #3B82F6; }
+
+        @keyframes slideIn {
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeOut {
+            to { opacity: 0; transform: translateY(-10px); }
+        }
+    </style>
+</head>
+<body>
+<div id="toast-container"></div>
+<div class="container">
+    <h1>Gestión de Usuarios</h1>
+
+    <div id="user-form-container">
+        <h3 id="form-title">Añadir Nuevo Usuario</h3>
+        <input type="hidden" id="user-id">
+        <div class="form-grid">
+            <div class="form-group">
+                <label for="usuario">Usuario:</label>
+                <input type="text" id="usuario" required placeholder="Nombre de usuario">
+            </div>
+            <div class="form-group">
+                <label for="clave">Contraseña:</label>
+                <input type="password" id="clave" placeholder="Dejar en blanco para no cambiar al editar">
+            </div>
+            <div class="form-group">
+                <label for="rol">Rol:</label>
+                <select id="rol">
+                    <option value="Lector">Lector</option>
+                    <option value="Editor">Editor</option>
+                    <option value="Admin">Admin</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="activo">Activo:</label>
+                <select id="activo">
+                    <option value="1">Sí (Activo)</option>
+                    <option value="0">No (Inactivo)</option>
+                </select>
+            </div>
+            <div class="form-group" style="grid-column: 1 / -1;">
+                <label for="rutaimg">Foto de Perfil:</label>
+                <div class="image-input-group">
+                    <input type="text" id="rutaimg" readonly placeholder="No se ha seleccionado imagen...">
+                    <button type="button" id="select-image-btn" class="btn-secondary">Buscar Imagen</button>
+                </div>
+            </div>
+        </div>
+        <div class="form-actions">
+            <button id="save-btn" class="btn-primary">Guardar Usuario</button>
+            <button id="cancel-btn" class="btn-secondary" style="display: none;">Cancelar Edición</button>
+        </div>
+    </div>
+
+    <div class="table-container">
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Usuario</th>
+                <th>Rol</th>
+                <th>Activo</th>
+                <th>Ruta Img</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody id="user-table-body">
+            <!-- Los usuarios se cargarán aquí dinámicamente -->
+        </tbody>
+    </table>
+    </div>
+</div>
+
+    <script src="./renderer.js"></script>
+</body>
+</html>
