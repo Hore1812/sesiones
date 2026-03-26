@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Mi App Portable SQLite</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        #user-list { list-style-type: none; padding: 0; }
+        #user-list li { padding: 5px; border-bottom: 1px solid #ccc; }
+        button, input { padding: 8px; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Usuarios de SQLite Embebida</h1>
+    <ul id="user-list"></ul>
+
+    <input type="text" id="new-user-name" placeholder="Nuevo Usuario">
+    <button id="add-user-btn">Añadir Usuario</button>
+
+    <script src="./renderer.js"></script>
+</body>
+</html>
