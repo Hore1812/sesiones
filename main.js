@@ -1,7 +1,8 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const sqlite3 = require('sqlite3').verbose();
 const fs = require('fs');
+const bcrypt = require('bcryptjs');
 
 let mainWindow;
 let db;
@@ -88,7 +89,8 @@ app.on('quit', () => {
 // IPC handlers para el CRUD de Usuarios
 ipcMain.handle('get-usuarios', async () => {
   return new Promise((resolve, reject) => {
-    db.all('SELECT * FROM usuarios ORDER BY id DESC', [], (err, rows) => {
+    // Solo seleccionamos los campos necesarios, excluyendo la clave/hash por seguridad.
+    db.all('SELECT id, usuario, rol, rutaimg, activo, registrado, modificado FROM usuarios ORDER BY id DESC', [], (err, rows) => {
       if (err) {
         return reject(err);
       }
@@ -98,27 +100,67 @@ ipcMain.handle('get-usuarios', async () => {
 });
 
 ipcMain.handle('create-usuario', async (event, usuario, clave, rol, rutaimg, activo) => {
-  return new Promise((resolve, reject) => {
-    const query = `INSERT INTO usuarios (usuario, clave, rol, rutaimg, activo) VALUES (?, ?, ?, ?, ?)`;
-    db.run(query, [usuario, clave, rol, rutaimg, activo], function(err) {
-      if (err) {
-        return reject(err);
-      }
-      resolve({ id: this.lastID, usuario, clave, rol, rutaimg, activo });
-    });
+  return new Promise(async (resolve, reject) => {
+    try {
+      const salt = await bcrypt.genSalt(10);
+      const hashClave = await bcrypt.hash(clave, salt);
+      const query = `INSERT INTO usuarios (usuario, clave, rol, rutaimg, activo) VALUES (?, ?, ?, ?, ?)`;
+      db.run(query, [usuario, hashClave, rol, rutaimg, activo], function(err) {
+        if (err) {
+          return reject(err);
+        }
+        resolve({ id: this.lastID, usuario, rol, rutaimg, activo });
+      });
+    } catch (error) {
+        reject(error);
+    }
   });
 });
 
 ipcMain.handle('update-usuario', async (event, id, usuario, clave, rol, rutaimg, activo) => {
-  return new Promise((resolve, reject) => {
-    const query = `UPDATE usuarios SET usuario = ?, clave = ?, rol = ?, rutaimg = ?, activo = ?, modificado = CURRENT_TIMESTAMP WHERE id = ?`;
-    db.run(query, [usuario, clave, rol, rutaimg, activo, id], function(err) {
-      if (err) {
-        return reject(err);
+  return new Promise(async (resolve, reject) => {
+    try {
+      let query;
+      let params;
+
+      // Si se proporcionó una nueva clave, actualizarla
+      if (clave) {
+        const salt = await bcrypt.genSalt(10);
+        const hashClave = await bcrypt.hash(clave, salt);
+        query = `UPDATE usuarios SET usuario = ?, clave = ?, rol = ?, rutaimg = ?, activo = ?, modificado = CURRENT_TIMESTAMP WHERE id = ?`;
+        params = [usuario, hashClave, rol, rutaimg, activo, id];
+      } else {
+        // Si no, no modificar la clave existente
+        query = `UPDATE usuarios SET usuario = ?, rol = ?, rutaimg = ?, activo = ?, modificado = CURRENT_TIMESTAMP WHERE id = ?`;
+        params = [usuario, rol, rutaimg, activo, id];
       }
-      resolve({ id, usuario, clave, rol, rutaimg, activo });
-    });
+
+      db.run(query, params, function(err) {
+        if (err) {
+          return reject(err);
+        }
+        resolve({ id, usuario, rol, rutaimg, activo });
+      });
+    } catch (error) {
+        reject(error);
+    }
   });
+});
+
+ipcMain.handle('select-image', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: 'Seleccionar Imagen de Perfil',
+    properties: ['openFile'],
+    filters: [
+      { name: 'Imágenes', extensions: ['jpg', 'png', 'gif', 'jpeg', 'webp'] }
+    ]
+  });
+
+  if (result.canceled || result.filePaths.length === 0) {
+    return null; // El usuario canceló la selección
+  } else {
+    return result.filePaths[0]; // Devuelve la ruta absoluta del archivo
+  }
 });
 
 ipcMain.handle('delete-usuario', async (event, id) => {

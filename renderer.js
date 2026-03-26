@@ -2,6 +2,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const tableBody = document.getElementById('user-table-body');
   const saveBtn = document.getElementById('save-btn');
   const cancelBtn = document.getElementById('cancel-btn');
+  const selectImageBtn = document.getElementById('select-image-btn');
 
   // Referencias a los campos del formulario
   const inputId = document.getElementById('user-id');
@@ -11,6 +12,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   const inputRutaimg = document.getElementById('rutaimg');
   const selectActivo = document.getElementById('activo');
   const formTitle = document.getElementById('form-title');
+
+  // Seleccionar Imagen
+  selectImageBtn.addEventListener('click', async () => {
+    const imagePath = await window.api.selectImage();
+    if (imagePath) {
+        inputRutaimg.value = imagePath;
+    }
+  });
 
   // Función para cargar usuarios
   async function loadUsers() {
@@ -38,12 +47,25 @@ document.addEventListener('DOMContentLoaded', async () => {
 
               // Activo
               const tdActivo = document.createElement('td');
-              tdActivo.textContent = user.activo === 1 ? 'Sí' : 'No';
+              const spanBadge = document.createElement('span');
+              spanBadge.className = user.activo === 1 ? 'badge active' : 'badge inactive';
+              spanBadge.textContent = user.activo === 1 ? 'Activo' : 'Inactivo';
+              tdActivo.appendChild(spanBadge);
               tr.appendChild(tdActivo);
 
               // Ruta Img
               const tdRutaimg = document.createElement('td');
-              tdRutaimg.textContent = user.rutaimg || '';
+              if (user.rutaimg) {
+                  const img = document.createElement('img');
+                  img.src = `file://${user.rutaimg}`;
+                  img.className = 'thumb';
+                  tdRutaimg.appendChild(img);
+              } else {
+                  const noImg = document.createElement('div');
+                  noImg.className = 'thumb';
+                  noImg.textContent = 'N/A';
+                  tdRutaimg.appendChild(noImg);
+              }
               tr.appendChild(tdRutaimg);
 
               // Acciones
@@ -83,8 +105,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       const rutaimg = inputRutaimg.value.trim();
       const activo = parseInt(selectActivo.value, 10);
 
-      if (!usuario || !clave) {
-          alert('Usuario y Clave son obligatorios.');
+      if (!usuario) {
+          alert('El nombre de Usuario es obligatorio.');
+          return;
+      }
+
+      if (!id && !clave) {
+          alert('La contraseña es obligatoria al crear un usuario nuevo.');
           return;
       }
 
@@ -109,7 +136,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   function editUser(user) {
       inputId.value = user.id;
       inputUsuario.value = user.usuario;
-      inputClave.value = user.clave;
+      inputClave.value = ''; // No mostrar ni sobreescribir la contraseña a menos que se escriba una nueva
       selectRol.value = user.rol;
       inputRutaimg.value = user.rutaimg || '';
       selectActivo.value = user.activo;
