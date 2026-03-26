@@ -21,6 +21,55 @@ function createWindow() {
   mainWindow.loadFile('index.html');
 }
 
+// Funciones de utilidad para manejar las rutas y copiado de imágenes
+function getImagesDir() {
+  let baseDir;
+  if (process.env.PORTABLE_EXECUTABLE_DIR) {
+    baseDir = process.env.PORTABLE_EXECUTABLE_DIR;
+  } else if (app.isPackaged) {
+    baseDir = path.dirname(app.getPath('exe'));
+  } else {
+    baseDir = __dirname;
+  }
+  const imgDir = path.join(baseDir, 'sesiones', 'img', 'usuarios');
+
+  // Asegurarse de que los directorios existan
+  if (!fs.existsSync(imgDir)) {
+    fs.mkdirSync(imgDir, { recursive: true });
+  }
+  return imgDir;
+}
+
+function saveProfileImage(sourcePath) {
+  if (!sourcePath || !fs.existsSync(sourcePath)) {
+    return sourcePath; // Retornar lo mismo si está vacío o no existe
+  }
+
+  const imagesDir = getImagesDir();
+
+  // Si la imagen ya está en el directorio de destino (ej. al editar sin cambiar imagen), no hacemos nada
+  if (path.dirname(sourcePath) === imagesDir) {
+    return sourcePath;
+  }
+
+  // Obtener solo el nombre del archivo con extensión
+  const filename = path.basename(sourcePath);
+  // Crear un nombre único para evitar sobrescrituras
+  const uniqueFilename = `${Date.now()}_${filename}`;
+  const destPath = path.join(imagesDir, uniqueFilename);
+
+  try {
+    // Solo copiar si el archivo origen y destino no son el mismo
+    if (sourcePath !== destPath) {
+        fs.copyFileSync(sourcePath, destPath);
+    }
+    return destPath;
+  } catch (error) {
+    console.error('Error al copiar imagen:', error);
+    return sourcePath; // En caso de error, guardar la original
+  }
+}
+
 // Configuración de la base de datos para app portable
 function initDB() {
   // Si estamos en un ejecutable portable (Electron Builder), usa esa ruta
@@ -104,12 +153,15 @@ ipcMain.handle('create-usuario', async (event, usuario, clave, rol, rutaimg, act
     try {
       const salt = await bcrypt.genSalt(10);
       const hashClave = await bcrypt.hash(clave, salt);
+      // Copiar la imagen a nuestro directorio de destino antes de guardar la ruta
+      const finalImagePath = saveProfileImage(rutaimg);
+
       const query = `INSERT INTO usuarios (usuario, clave, rol, rutaimg, activo) VALUES (?, ?, ?, ?, ?)`;
-      db.run(query, [usuario, hashClave, rol, rutaimg, activo], function(err) {
+      db.run(query, [usuario, hashClave, rol, finalImagePath, activo], function(err) {
         if (err) {
           return reject(err);
         }
-        resolve({ id: this.lastID, usuario, rol, rutaimg, activo });
+        resolve({ id: this.lastID, usuario, rol, rutaimg: finalImagePath, activo });
       });
     } catch (error) {
         reject(error);
@@ -123,23 +175,27 @@ ipcMain.handle('update-usuario', async (event, id, usuario, clave, rol, rutaimg,
       let query;
       let params;
 
+      // Verificamos si la ruta de la imagen ha cambiado (si es una nueva desde el diálogo, la copiamos)
+      // Si el usuario edita y no cambia la imagen, `rutaimg` será la ruta que ya existe en nuestro directorio
+      const finalImagePath = saveProfileImage(rutaimg);
+
       // Si se proporcionó una nueva clave, actualizarla
       if (clave) {
         const salt = await bcrypt.genSalt(10);
         const hashClave = await bcrypt.hash(clave, salt);
         query = `UPDATE usuarios SET usuario = ?, clave = ?, rol = ?, rutaimg = ?, activo = ?, modificado = CURRENT_TIMESTAMP WHERE id = ?`;
-        params = [usuario, hashClave, rol, rutaimg, activo, id];
+        params = [usuario, hashClave, rol, finalImagePath, activo, id];
       } else {
         // Si no, no modificar la clave existente
         query = `UPDATE usuarios SET usuario = ?, rol = ?, rutaimg = ?, activo = ?, modificado = CURRENT_TIMESTAMP WHERE id = ?`;
-        params = [usuario, rol, rutaimg, activo, id];
+        params = [usuario, rol, finalImagePath, activo, id];
       }
 
       db.run(query, params, function(err) {
         if (err) {
           return reject(err);
         }
-        resolve({ id, usuario, rol, rutaimg, activo });
+        resolve({ id, usuario, rol, rutaimg: finalImagePath, activo });
       });
     } catch (error) {
         reject(error);
