@@ -21,6 +21,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
+  // Función para mostrar notificaciones (Toasts)
+  function showNotification(message, type = 'success') {
+      const toastContainer = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+
+      toast.className = `toast ${type}`;
+      toast.textContent = message;
+
+      toastContainer.appendChild(toast);
+
+      // Eliminar el toast del DOM después de que termine la animación (3 segundos)
+      setTimeout(() => {
+          toast.remove();
+      }, 3000);
+  }
+
   // Función para cargar usuarios
   async function loadUsers() {
       try {
@@ -119,16 +135,18 @@ document.addEventListener('DOMContentLoaded', async () => {
           if (id) {
               // Actualizar
               await window.api.updateUsuario(id, usuario, clave, rol, rutaimg, activo);
+              showNotification(`Usuario "${usuario}" actualizado correctamente.`);
           } else {
               // Crear
               await window.api.createUsuario(usuario, clave, rol, rutaimg, activo);
+              showNotification(`Usuario "${usuario}" creado con éxito.`);
           }
 
           resetForm();
           loadUsers();
       } catch (error) {
           console.error("Error al guardar usuario", error);
-          alert('Hubo un error al guardar el usuario. (Posiblemente el usuario ya exista)');
+          showNotification('Error al guardar el usuario (Puede que el nombre ya exista).', 'error');
       }
   });
 
@@ -151,9 +169,10 @@ document.addEventListener('DOMContentLoaded', async () => {
           try {
               await window.api.deleteUsuario(id);
               loadUsers();
+              showNotification(`Usuario con ID ${id} eliminado.`, 'info');
           } catch (error) {
               console.error("Error al eliminar usuario", error);
-              alert("Hubo un error al eliminar el usuario");
+              showNotification('Hubo un error al eliminar el usuario.', 'error');
           }
       }
   }
