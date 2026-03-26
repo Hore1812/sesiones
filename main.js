@@ -26,11 +26,17 @@ function initDB() {
   // Si no, usa el directorio de datos del usuario o el directorio actual
   let dbPath;
   if (process.env.PORTABLE_EXECUTABLE_DIR) {
-    dbPath = path.join(process.env.PORTABLE_EXECUTABLE_DIR, 'database.sqlite');
+    dbPath = path.join(process.env.PORTABLE_EXECUTABLE_DIR, 'bdsesiones.db');
   } else if (app.isPackaged) {
-      dbPath = path.join(path.dirname(app.getPath('exe')), 'database.sqlite');
+      dbPath = path.join(path.dirname(app.getPath('exe')), 'bdsesiones.db');
   } else {
-    dbPath = path.join(__dirname, 'database.sqlite');
+    // Apuntando a la base de datos de "sesiones/bd/bdsesiones.db"
+    // Asegurando que el directorio exista si es entorno dev.
+    const devDbDir = path.join(__dirname, 'sesiones', 'bd');
+    if (!fs.existsSync(devDbDir)) {
+      fs.mkdirSync(devDbDir, { recursive: true });
+    }
+    dbPath = path.join(devDbDir, 'bdsesiones.db');
   }
 
   console.log('Database path:', dbPath);
@@ -40,10 +46,16 @@ function initDB() {
       console.error('Error opening database', err.message);
     } else {
       console.log('Connected to the SQLite database.');
-      // Crear tabla de ejemplo
-      db.run(`CREATE TABLE IF NOT EXISTS users (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          name TEXT NOT NULL
+      // Inicializar la tabla si no existe (para portabilidad/nuevos setups)
+      db.run(`CREATE TABLE IF NOT EXISTS usuarios (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        usuario TEXT NOT NULL UNIQUE,
+        clave TEXT NOT NULL,
+        rol TEXT CHECK(rol IN ('Admin', 'Lector', 'Editor')) DEFAULT 'Lector',
+        rutaimg TEXT,
+        activo INTEGER DEFAULT 1,
+        registrado DATETIME DEFAULT CURRENT_TIMESTAMP,
+        modificado DATETIME DEFAULT CURRENT_TIMESTAMP
       )`);
     }
   });
@@ -73,26 +85,50 @@ app.on('quit', () => {
     }
 });
 
-// IPC handler para obtener usuarios
-ipcMain.handle('get-users', async () => {
+// IPC handlers para el CRUD de Usuarios
+ipcMain.handle('get-usuarios', async () => {
   return new Promise((resolve, reject) => {
-    db.all('SELECT * FROM users', [], (err, rows) => {
+    db.all('SELECT * FROM usuarios ORDER BY id DESC', [], (err, rows) => {
       if (err) {
-        reject(err);
+        return reject(err);
       }
       resolve(rows);
     });
   });
 });
 
-// IPC handler para añadir un usuario
-ipcMain.handle('add-user', async (event, name) => {
+ipcMain.handle('create-usuario', async (event, usuario, clave, rol, rutaimg, activo) => {
   return new Promise((resolve, reject) => {
-    db.run('INSERT INTO users (name) VALUES (?)', [name], function(err) {
+    const query = `INSERT INTO usuarios (usuario, clave, rol, rutaimg, activo) VALUES (?, ?, ?, ?, ?)`;
+    db.run(query, [usuario, clave, rol, rutaimg, activo], function(err) {
       if (err) {
-        reject(err);
+        return reject(err);
       }
-      resolve({ id: this.lastID, name: name });
+      resolve({ id: this.lastID, usuario, clave, rol, rutaimg, activo });
+    });
+  });
+});
+
+ipcMain.handle('update-usuario', async (event, id, usuario, clave, rol, rutaimg, activo) => {
+  return new Promise((resolve, reject) => {
+    const query = `UPDATE usuarios SET usuario = ?, clave = ?, rol = ?, rutaimg = ?, activo = ?, modificado = CURRENT_TIMESTAMP WHERE id = ?`;
+    db.run(query, [usuario, clave, rol, rutaimg, activo, id], function(err) {
+      if (err) {
+        return reject(err);
+      }
+      resolve({ id, usuario, clave, rol, rutaimg, activo });
+    });
+  });
+});
+
+ipcMain.handle('delete-usuario', async (event, id) => {
+  return new Promise((resolve, reject) => {
+    const query = `DELETE FROM usuarios WHERE id = ?`;
+    db.run(query, [id], function(err) {
+      if (err) {
+        return reject(err);
+      }
+      resolve({ deleted: this.changes > 0 });
     });
   });
 });
